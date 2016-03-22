@@ -1,0 +1,3 @@
+MonoBehaviourCounterについて
+シーン中のMonoBehaviourを調査するために作成しました。
+TODO:ルートオブジェクトがdisableの場合、そのobjectや子供の情報が取れないので何とかする
