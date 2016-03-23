@@ -175,7 +175,7 @@ public class ComponentCountDebugWindow : EditorWindow{
 
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.LabelField(_currentSelectType.ToString() + " Compoent Objects");
-            _outputType = (EOutputList)(EditorGUILayout.EnumPopup(_outputType) );
+            _outputType = (EOutputList)(EditorGUILayout.EnumPopup(_outputType , GUILayout.Width(120) ));
             EditorGUILayout.EndHorizontal();
 
             _scrollGameObjectListPos = EditorGUILayout.BeginScrollView(_scrollGameObjectListPos  );
