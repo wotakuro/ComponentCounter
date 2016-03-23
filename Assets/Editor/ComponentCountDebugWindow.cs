@@ -4,7 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-public class MonoBehaviourCountDebugWindow : EditorWindow{
+public class ComponentCountDebugWindow : EditorWindow{
 
     public enum ESortType
     {
@@ -19,22 +19,28 @@ public class MonoBehaviourCountDebugWindow : EditorWindow{
         ActiveOnly,
         NotActiveOnly,
     }
+    
+    public enum ESearchMode
+    {
+        MonoBehaviourOnly,
+        ComponentAll,
+    }
 
-    public class BehaviourCount {
+    public class ComponentCount {
         public Type type;
         public int activeCnt;
         public int allCnt;
 
         public string typeStr { private set; get; }
 
-        public BehaviourCount(Type t)
+        public ComponentCount(Type t)
         {
             this.type = t;
             this.activeCnt = 0;
             this.allCnt = 0;
             typeStr = t.ToString();
         }
-        public BehaviourCount(BehaviourCount src)
+        public ComponentCount(ComponentCount src)
         {
             this.type = src.type;
             this.activeCnt = src.activeCnt;
@@ -55,7 +61,7 @@ public class MonoBehaviourCountDebugWindow : EditorWindow{
     /// <summary>
     /// type list for sort
     /// </summary>
-    private List<BehaviourCount> _typeCntList = new List<BehaviourCount>();
+    private List<ComponentCount> _typeCntList = new List<ComponentCount>();
 
     /// <summary>
     /// GameObject which has selected component;
@@ -89,12 +95,18 @@ public class MonoBehaviourCountDebugWindow : EditorWindow{
     private EOutputList _outputType;
 
     /// <summary>
+    /// search mode
+    /// </summary>
+    private ESearchMode _searchMode = ESearchMode.ComponentAll;
+
+    /// <summary>
     /// GetWindow
     /// </summary>
-    [MenuItem("Window/MonoBehaviourCountDebug")]
+    [MenuItem("Window/ComponentCountDebug")]
     public static void GetWindow()
     {
-        MonoBehaviourCountDebugWindow window = EditorWindow.GetWindow<MonoBehaviourCountDebugWindow>();
+        ComponentCountDebugWindow window = EditorWindow.GetWindow<ComponentCountDebugWindow>();
+        window.minSize = new Vector2(200.0f, 400.0f);
     }
 
     /// <summary>
@@ -102,12 +114,23 @@ public class MonoBehaviourCountDebugWindow : EditorWindow{
     /// </summary>
     void OnGUI()
     {
-        if (GUILayout.Button("Count Scene MonoBehaviours"))
+        EditorGUILayout.BeginHorizontal();
+        var oldSearchMode = _searchMode;
+        _searchMode = (ESearchMode)(EditorGUILayout.EnumPopup(_searchMode));
+        if (oldSearchMode != _searchMode)
+        {
+            this.Clear();
+            List<GameObject> parentObj = this.GetAllRootGameObjects();
+            EditorApplication.isPaused = true;
+            CreateTypeDictionary(parentObj);
+        }
+        if (GUILayout.Button("Search",GUILayout.Width(150) ))
         {
             List<GameObject> parentObj = this.GetAllRootGameObjects();
             EditorApplication.isPaused = true;
             CreateTypeDictionary(parentObj);
         }
+        EditorGUILayout.EndHorizontal();
         EditorGUILayout.HelpBox("If root gameObject is disabled, couldn't count child objects..", MessageType.Info);
 
         EditorGUILayout.LabelField("GameObject " + _snapObjectNum);
@@ -128,7 +151,7 @@ public class MonoBehaviourCountDebugWindow : EditorWindow{
         EditorGUILayout.LabelField("", GUILayout.Width(20));
         EditorGUILayout.EndHorizontal();
 
-        _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos, GUILayout.Height(250));
+        _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos, GUILayout.Height(150));
         if (_typeCntList != null)
         {
             foreach (var type in _typeCntList)
@@ -236,7 +259,7 @@ public class MonoBehaviourCountDebugWindow : EditorWindow{
         List<GameObject> gmoList = new List<GameObject>();
         foreach (var gmo in rootGmoList)
         {
-            var all = gmo.GetComponentsInChildren<MonoBehaviour>(true);
+            Component[] all = SearchComponent(gmo, _searchMode);
             foreach (var obj in all)
             {
                 if( obj.GetType() == t ){gmoList.Add(obj.gameObject);}
@@ -251,18 +274,19 @@ public class MonoBehaviourCountDebugWindow : EditorWindow{
     /// <param name="allObjects">all objects</param>
     private void CreateTypeDictionary(List<GameObject> rootGmolist)
     {
-        var _typeDict = new Dictionary<Type, BehaviourCount>();
+        var _typeDict = new Dictionary<Type, ComponentCount>();
 
         foreach (var gmo in rootGmolist)
         {
-            var all = gmo.GetComponentsInChildren<MonoBehaviour>(true);
+            Component[] all = SearchComponent(gmo, _searchMode);
             foreach (var obj in all)
             {
                 if (obj == null) { continue; }
                 Type t = obj.GetType();
+                if (t == typeof(Transform)) { continue; }
                 if (!_typeDict.ContainsKey(t))
                 {
-                    _typeDict.Add(t, new BehaviourCount(t));
+                    _typeDict.Add(t, new ComponentCount(t));
                 }
                 _typeDict[t].allCnt += 1;
                 if (obj.transform.gameObject.activeInHierarchy)
@@ -274,21 +298,36 @@ public class MonoBehaviourCountDebugWindow : EditorWindow{
         _typeCntList.Clear();
         foreach (var t in _typeDict)
         {
-            _typeCntList.Add(new BehaviourCount(t.Value));
+            _typeCntList.Add(new ComponentCount(t.Value));
         }
         this.SortComponents();
     }
 
+    private Component[] SearchComponent(GameObject gmo, ESearchMode mode)
+    {
+        Component[] all = null;
+        if (mode == ESearchMode.ComponentAll)
+        {
+            all = gmo.GetComponentsInChildren<Component>(true);
+        }
+        else
+        {
+            all = gmo.GetComponentsInChildren<MonoBehaviour>(true);
+        }
+        return all;
+    }
+
+
     private void SortComponents(){
         switch (_sortType) {
             case ESortType.SortByActive:
-                _typeCntList.Sort(delegate(BehaviourCount a, BehaviourCount b) { return b.activeCnt - a.activeCnt; });
+                _typeCntList.Sort(delegate(ComponentCount a, ComponentCount b) { return b.activeCnt - a.activeCnt; });
                 break;
             case ESortType.SortByAll:
-                _typeCntList.Sort(delegate(BehaviourCount a, BehaviourCount b) { return b.allCnt - a.allCnt; });
+                _typeCntList.Sort(delegate(ComponentCount a, ComponentCount b) { return b.allCnt - a.allCnt; });
                 break;
             case ESortType.SortByName:
-                _typeCntList.Sort(delegate(BehaviourCount a, BehaviourCount b) { return string.Compare( a.typeStr , b.typeStr); });
+                _typeCntList.Sort(delegate(ComponentCount a, ComponentCount b) { return string.Compare( a.typeStr , b.typeStr); });
                 break;
         }
     }
