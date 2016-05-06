@@ -262,7 +262,7 @@ public class ComponentCountDebugWindow : EditorWindow{
             Component[] all = SearchComponent(gmo, _searchMode);
             foreach (var obj in all)
             {
-                if( obj.GetType() == t ){gmoList.Add(obj.gameObject);}
+                if(obj != null && obj.GetType() == t ){gmoList.Add(obj.gameObject);}
             }
         }
          return gmoList;
