@@ -100,6 +100,11 @@ public class ComponentCountDebugWindow : EditorWindow{
     private ESearchMode _searchMode = ESearchMode.ComponentAll;
 
     /// <summary>
+    /// serach component filter
+    /// </summary>
+    private string _searchComponentFilter = "";
+
+    /// <summary>
     /// GetWindow
     /// </summary>
     [MenuItem("Window/ComponentCountDebug")]
@@ -114,6 +119,8 @@ public class ComponentCountDebugWindow : EditorWindow{
     /// </summary>
     void OnGUI()
     {
+
+        _searchComponentFilter = EditorGUILayout.TextField("TypeFilter", _searchComponentFilter);
         EditorGUILayout.BeginHorizontal();
         var oldSearchMode = _searchMode;
         _searchMode = (ESearchMode)(EditorGUILayout.EnumPopup(_searchMode));
@@ -131,7 +138,8 @@ public class ComponentCountDebugWindow : EditorWindow{
             CreateTypeDictionary(parentObj);
         }
         EditorGUILayout.EndHorizontal();
-        EditorGUILayout.HelpBox("If root gameObject is disabled, couldn't count child objects..", MessageType.Info);
+        // EditorGUILayout.HelpBox("If root gameObject is disabled, couldn't count child objects..", MessageType.Info);
+        EditorGUILayout.HelpBox("If you don't save scene, this doesn't work..", MessageType.Info);
 
         EditorGUILayout.LabelField("GameObject " + _snapObjectNum);
         EditorGUILayout.LabelField("ActiveNum " + _activeObjectNum);
@@ -219,13 +227,17 @@ public class ComponentCountDebugWindow : EditorWindow{
     }
 
 
+
+
     /// <summary>
     /// get All RootObject
-    /// Todo: inactive object doesn't hit...
     /// </summary>
     /// <returns></returns>
-    private List<GameObject> GetAllRootGameObjects()
+    private static List<GameObject> GetAllRootGameObjects()
     {
+#if false
+        // If the root object is nonactive, this program can't find... 
+        // so Comment out
         List<GameObject> parentObj = new List<GameObject>();
         var allObjects = UnityEngine.Object.FindObjectsOfType<Transform>();
         _activeObjectNum = allObjects.Length;
@@ -246,6 +258,21 @@ public class ComponentCountDebugWindow : EditorWindow{
             }
         }
         return parentObj;
+#else
+        // you should save scene
+        List<GameObject> list = new List<GameObject>();
+
+        GameObject[] objs = UnityEngine.Resources.FindObjectsOfTypeAll<GameObject>();
+        for (int i = 0; i < objs.Length; i++)
+        {
+            string path = AssetDatabase.GetAssetOrScenePath(objs[i]);
+            if (path.EndsWith(".unity") && objs[i].transform.parent == null)
+            {
+                list.Add(objs[i]);
+            }
+        }
+        return list;
+#endif
     }
 
     /// <summary>
@@ -275,15 +302,21 @@ public class ComponentCountDebugWindow : EditorWindow{
     private void CreateTypeDictionary(List<GameObject> rootGmolist)
     {
         var _typeDict = new Dictionary<Type, ComponentCount>();
+        _searchComponentFilter = _searchComponentFilter.Trim();
 
         foreach (var gmo in rootGmolist)
         {
+            if (gmo == null) { continue; }
             Component[] all = SearchComponent(gmo, _searchMode);
             foreach (var obj in all)
             {
                 if (obj == null) { continue; }
                 Type t = obj.GetType();
                 if (t == typeof(Transform)) { continue; }
+                if (!string.IsNullOrEmpty(_searchComponentFilter) && !t.FullName.Contains(_searchComponentFilter) )
+                {
+                    continue;
+                }
                 if (!_typeDict.ContainsKey(t))
                 {
                     _typeDict.Add(t, new ComponentCount(t));
